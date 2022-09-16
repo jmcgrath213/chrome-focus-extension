@@ -1,7 +1,7 @@
 {
-  "name": "Chrome React Focus Extension",
+  "name": "Study Habits",
   "description": "Chrome extension to help you stay off distracting websites",
-  "version": "1.0",
+  "version": "0.0.1",
   "manifest_version": 3,
   "content_scripts": [
     {
@@ -11,12 +11,12 @@
  ],
   "action": {
     "default_popup": "index.html",
-    "default_title": "Open the popup"
+    "default_title": "Study Habits"
   },
   "icons": {
-    "16": "logo192.png",
-    "48": "logo192.png",
-    "128": "logo192.png"
+    "16": "logo128.png",
+    "48": "logo128.png",
+    "128": "logo128.png"
   },
   "permissions": [
     "activeTab"
