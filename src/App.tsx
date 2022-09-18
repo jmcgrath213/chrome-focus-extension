@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useRef, useState } from 'react';
 import { 
   Box,
   Heading,
@@ -15,12 +15,15 @@ import {
   Button
 } from '@chakra-ui/react';
 import { GiSpellBook, GiBookshelf } from 'react-icons/gi';
+import Countdown, { zeroPad } from 'react-countdown';
 import './App.css';
 
 function App() {
   const [appIsOn, setAppIsOn] = useState(true);
-  const [focusTime, setFocusTime] = useState("");
-  const [breakTime, setBreakTime] = useState("");
+  const [countdownStarted, setCountdownStarted] = useState(false);
+  const [focusTime, setFocusTime] = useState(0);
+  const [breakTime, setBreakTime] = useState(0);
+  const countdownRef = useRef<any>();
 
   return (
     <Box 
@@ -49,18 +52,45 @@ function App() {
           </VStack>
         </HStack>
         <CircularProgress value={30} color="red.500" size="200px" thickness='12px'>
-          <CircularProgressLabel fontSize="lg">0:59:34</CircularProgressLabel>
+          <CircularProgressLabel fontSize="lg">
+            <Countdown
+              date={Date.now() + 100000}
+              autoStart={false}
+              ref={countdownRef}
+              renderer={props => 
+              {return countdownStarted && (
+                <Box>
+                  <span>
+                    {zeroPad(props.hours)}:{zeroPad(props.minutes)}:{zeroPad(props.seconds)}
+                  </span>
+                </Box>
+              );}
+              }
+            />
+            {!countdownStarted && (
+              <Button
+                size="xs"
+                colorScheme="red"
+                onClick={() => {
+                  setCountdownStarted(true);
+                  countdownRef.current.start();
+                }}
+              >
+                Start
+              </Button>
+            )}
+          </CircularProgressLabel>
         </CircularProgress>
         <Text as="u" fontSize="xl">Ratio</Text>
         <HStack>
           <VStack>
             <Text fontSize="md">Focus Time</Text>
-            <Select />
+            <Select onChange={() => setFocusTime(1)} />
           </VStack>
           <Text pt="30px" fontSize="md">to</Text>
           <VStack>
             <Text fontSize="md">Break Time</Text>
-            <Select />
+            <Select onChange={() => setBreakTime(1)}/>
           </VStack>
         </HStack>
         <Button size="xs" colorScheme="green">Enter</Button>
