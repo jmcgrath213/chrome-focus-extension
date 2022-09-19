@@ -7,12 +7,16 @@ import {
   CircularProgressLabel,
   HStack,
   VStack,
-  Select,
   CheckboxGroup,
   Checkbox,
   Icon,
   Switch,
-  Button
+  Button,
+  Slider,
+  SliderTrack,
+  SliderFilledTrack,
+  SliderThumb,
+  SliderMark
 } from '@chakra-ui/react';
 import { GiSpellBook, GiBookshelf } from 'react-icons/gi';
 import Countdown, { zeroPad } from 'react-countdown';
@@ -22,51 +26,8 @@ function App() {
   const [appIsOn, setAppIsOn] = useState(true);
   const [countdownStarted, setCountdownStarted] = useState(false);
   const [focusTime, setFocusTime] = useState(0);
+  const [breakTime, setBreakTime] = useState(0);
   const countdownRef = useRef<any>();
-
-  const focusOptions = [
-    {
-      label: "30min",
-      timeInMil: 1800000
-    },
-    {
-      label: "45min",
-      timeInMil: 2700000
-    },
-    {
-      label: "1hr",
-      timeInMil: 3600000
-    },
-    {
-      label: "1hr 15min",
-      timeInMil: 4500000
-    },
-    {
-      label: "1hr 30min",
-      timeInMil: 5400000
-    },
-    {
-      label: "1hr 45min",
-      timeInMil: 6300000
-    },
-    {
-      label: "2hr",
-      timeInMil: 7200000
-    },
-    {
-      label: "2hr 30min",
-      timeInMil: 9000000
-    },
-    {
-      label: "3hrs",
-      timeInMil: 10800000
-    },
-  ]
-
-  const getFocusValue = () => {
-    const value = (document.getElementById('focusSelect') as HTMLInputElement).value;
-    setFocusTime(parseInt(value));
-  }
 
   return (
     <Box 
@@ -74,7 +35,7 @@ function App() {
       backgroundColor="whitesmoke"
       alignContent="center"
     >
-      <VStack>
+      <VStack pb={4}>
         <HStack spacing={3} mt={3}>
           <Heading>Study Habits</Heading>
           <VStack>
@@ -94,7 +55,13 @@ function App() {
             />
           </VStack>
         </HStack>
-        <CircularProgress value={30} color="red.500" size="200px" thickness='12px'>
+        <CircularProgress
+          value={0}
+          max={focusTime/1000}
+          color="red.500"
+          size="200px"
+          thickness='12px'
+        >
           <CircularProgressLabel fontSize="lg">
             <Countdown
               date={Date.now() + focusTime}
@@ -125,24 +92,54 @@ function App() {
             )}
           </CircularProgressLabel>
         </CircularProgress>
-        <Text as="u" fontSize="xl">Ratio</Text>
-        <HStack>
-          <VStack>
-            <Text fontSize="md">Focus Time</Text>
-            <Select id="focusSelect" placeholder='Set Focus Time' onChange={() => getFocusValue()}>
-              {focusOptions.map((option, i) => {
-                return (
-                  <option key={i} value={option.timeInMil}>{option.label}</option>
-                )
-              })}
-            </Select>
-          </VStack>
-          <Text pt="30px" fontSize="md">to</Text>
-          <VStack>
-            <Text fontSize="md">Break Time</Text>
-            <Select />
-          </VStack>
-        </HStack>
+        <Text fontSize="md" as="u">Focus Time</Text>
+        <Box width="80%" pb={4}>
+          <Slider
+            min={18}
+            max={126}
+            defaultValue={36}
+            step={9}
+            onChange={(val) => setFocusTime(val * 100000)}
+          >
+            <SliderMark mt={2} ml={-2.5} fontSize="sm" value={36}>
+              1hr
+            </SliderMark>
+            <SliderMark mt={2} ml={-2.5} fontSize="sm" value={72}>
+              2hr
+            </SliderMark>
+            <SliderMark mt={2} ml={-2.5} fontSize="sm" value={108}>
+              3hr
+            </SliderMark>
+            <SliderTrack>
+              <SliderFilledTrack bg="red.500" />
+            </SliderTrack>
+            <SliderThumb />
+          </Slider>
+        </Box>
+        <Text fontSize="md" as="u">Break Time</Text>
+        <Box width="80%" pb={4}>
+          <Slider
+            min={3}
+            max={33}
+            defaultValue={9}
+            step={3}
+            onChange={(val) => setBreakTime(val * 100000)}
+          >
+            <SliderMark mt={2} ml={-2.5} fontSize="sm" value={9}>
+              15m
+            </SliderMark>
+            <SliderMark mt={2} ml={-2.5} fontSize="sm" value={18}>
+              30m
+            </SliderMark>
+            <SliderMark mt={2} ml={-2.5} fontSize="sm" value={27}>
+              45m
+            </SliderMark>
+            <SliderTrack>
+              <SliderFilledTrack bg="blue.500" />
+            </SliderTrack>
+            <SliderThumb />
+          </Slider>
+        </Box>
         <Button size="xs" colorScheme="green">Enter</Button>
         <Text as="u" fontSize="xl">Blocked Sites</Text>
         <CheckboxGroup>
