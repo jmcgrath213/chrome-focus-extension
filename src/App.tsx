@@ -16,7 +16,15 @@ import {
   SliderTrack,
   SliderFilledTrack,
   SliderThumb,
-  SliderMark
+  SliderMark,
+  useDisclosure,
+  Modal,
+  ModalOverlay,
+  ModalContent,
+  ModalHeader,
+  ModalCloseButton,
+  ModalBody,
+  ModalFooter
 } from '@chakra-ui/react';
 import { GiSpellBook, GiBookshelf } from 'react-icons/gi';
 import Countdown, { zeroPad } from 'react-countdown';
@@ -25,9 +33,17 @@ import './App.css';
 function App() {
   const [appIsOn, setAppIsOn] = useState(true);
   const [countdownStarted, setCountdownStarted] = useState(false);
-  const [focusTime, setFocusTime] = useState(0);
-  const [breakTime, setBreakTime] = useState(0);
+  const [focusTime, setFocusTime] = useState(3600000);
+  const [breakTime, setBreakTime] = useState(900000);
+  const [finalFocus, setFinalFocus] = useState(0);
+  const [finalBreak, setFinalBreak] = useState(0);
+  const { isOpen, onOpen, onClose } = useDisclosure();
   const countdownRef = useRef<any>();
+
+  const confirmSetTimes = () => {
+    setFinalFocus(focusTime);
+    setFinalBreak(breakTime);
+  }
 
   return (
     <Box 
@@ -64,7 +80,7 @@ function App() {
         >
           <CircularProgressLabel fontSize="lg">
             <Countdown
-              date={Date.now() + focusTime}
+              date={Date.now() + finalFocus}
               autoStart={false}
               ref={countdownRef}
               renderer={props => 
@@ -81,7 +97,7 @@ function App() {
               <Button
                 size="xs"
                 colorScheme="red"
-                isDisabled={focusTime === 0}
+                isDisabled={finalFocus === 0}
                 onClick={() => {
                   setCountdownStarted(true);
                   countdownRef.current.start();
@@ -140,7 +156,7 @@ function App() {
             <SliderThumb />
           </Slider>
         </Box>
-        <Button size="xs" colorScheme="green">Enter</Button>
+        <Button size="xs" colorScheme="green" onClick={onOpen}>Enter</Button>
         <Text as="u" fontSize="xl">Blocked Sites</Text>
         <CheckboxGroup>
           <VStack spacing={1} alignItems="flex-start">
@@ -149,6 +165,28 @@ function App() {
           </VStack>
         </CheckboxGroup>
       </VStack>
+      <Modal isOpen={isOpen} onClose={onClose}>
+        <ModalOverlay />
+        <ModalContent width="90%">
+          <ModalHeader>Modal Title</ModalHeader>
+          <ModalCloseButton />
+          <ModalBody>
+            <Text>Yo</Text>
+          </ModalBody>
+
+          <ModalFooter>
+            <Button colorScheme='red' mr={3} onClick={onClose}>
+              Cancel
+            </Button>
+            <Button
+              colorScheme="green"
+              onClick={() => {confirmSetTimes(); onClose();}}
+            >
+              Confirm
+            </Button>
+          </ModalFooter>
+        </ModalContent>
+      </Modal>
     </Box>
   );
 }
