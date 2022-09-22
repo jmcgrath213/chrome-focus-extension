@@ -3,8 +3,6 @@ import {
   Box,
   Heading,
   Text,
-  CircularProgress,
-  CircularProgressLabel,
   HStack,
   VStack,
   CheckboxGroup,
@@ -28,21 +26,39 @@ import {
 } from '@chakra-ui/react';
 import { GiSpellBook, GiBookshelf } from 'react-icons/gi';
 import Countdown, { zeroPad } from 'react-countdown';
+import { buildStyles, CircularProgressbarWithChildren } from 'react-circular-progressbar';
+import 'react-circular-progressbar/dist/styles.css';
 import './App.css';
 
 function App() {
   const [appIsOn, setAppIsOn] = useState(true);
-  const [countdownStarted, setCountdownStarted] = useState(false);
   const [focusTime, setFocusTime] = useState(3600000);
   const [breakTime, setBreakTime] = useState(900000);
-  const [finalFocus, setFinalFocus] = useState(0);
+  const [finalFocus, setFinalFocus] = useState(1);
   const [finalBreak, setFinalBreak] = useState(0);
+  const [onBreak, setOnBreak] = useState(false);
   const { isOpen, onOpen, onClose } = useDisclosure();
   const countdownRef = useRef<any>();
+  var countdownValue = countdownRef?.current?.total;
+  console.log("count", countdownValue);
 
   const confirmSetTimes = () => {
     setFinalFocus(focusTime);
     setFinalBreak(breakTime);
+  }
+
+  const startCountdown = () => {
+    confirmSetTimes();
+    setTimeout(() => {
+      countdownRef.current.start();
+    }, 100)
+  }
+
+  const startBreak = () => {
+    setTimeout(() => {
+      countdownRef.current.start();
+      console.log("hit timeout");
+    }, 100)
   }
 
   return (
@@ -71,47 +87,39 @@ function App() {
             />
           </VStack>
         </HStack>
-        <CircularProgress
-          value={0}
-          max={focusTime/1000}
-          color="red.500"
-          size="200px"
-          thickness='12px'
-        >
-          <CircularProgressLabel fontSize="lg">
-            <Countdown
-              date={Date.now() + finalFocus}
-              autoStart={false}
-              ref={countdownRef}
-              renderer={props => 
-              {return countdownStarted && (
+        <Countdown
+          date={onBreak ? Date.now() + finalBreak : Date.now() + finalFocus}
+          onStop={() => {setOnBreak(!onBreak); startBreak();}}
+          autoStart={false}
+          ref={countdownRef}
+          renderer={props => 
+          {return (
+            <Box width="65%" height="55%">
+              <CircularProgressbarWithChildren 
+                value={finalFocus - props.total}
+                maxValue={finalFocus}
+                counterClockwise={onBreak}
+                styles={buildStyles({
+                  rotation: 1/(finalFocus/1000),
+                  strokeLinecap: 'round',
+                  pathTransitionDuration: 0.1,
+                  pathColor: '#e42d2d',
+                })}
+              >
                 <Box>
                   <span>
                     {zeroPad(props.hours)}:{zeroPad(props.minutes)}:{zeroPad(props.seconds)}
                   </span>
                 </Box>
-              );}
-              }
-            />
-            {!countdownStarted && (
-              <Button
-                size="xs"
-                colorScheme="red"
-                isDisabled={finalFocus === 0}
-                onClick={() => {
-                  setCountdownStarted(true);
-                  countdownRef.current.start();
-                }}
-              >
-                Start
-              </Button>
-            )}
-          </CircularProgressLabel>
-        </CircularProgress>
+              </CircularProgressbarWithChildren>
+            </Box>
+          )}
+          }
+        />
         <Text fontSize="md" as="u">Focus Time</Text>
         <Box width="80%" pb={4}>
           <Slider
-            min={18}
+            min={1}
             max={126}
             defaultValue={36}
             step={9}
@@ -135,7 +143,7 @@ function App() {
         <Text fontSize="md" as="u">Break Time</Text>
         <Box width="80%" pb={4}>
           <Slider
-            min={3}
+            min={1}
             max={33}
             defaultValue={9}
             step={3}
@@ -180,7 +188,10 @@ function App() {
             </Button>
             <Button
               colorScheme="green"
-              onClick={() => {confirmSetTimes(); onClose();}}
+              onClick={() => {
+                startCountdown();
+                onClose();
+              }}
             >
               Confirm
             </Button>
