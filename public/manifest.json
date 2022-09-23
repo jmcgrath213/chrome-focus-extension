@@ -9,6 +9,9 @@
       "js": ["./static/js/content.js"]
     }
  ],
+ "background": {
+    "service_worker": "background.js"
+ },
   "action": {
     "default_popup": "index.html",
     "default_title": "Study Habits"
@@ -19,6 +22,8 @@
     "128": "logo128.png"
   },
   "permissions": [
-    "activeTab"
+    "activeTab",
+    "storage",
+    "runtime"
   ]
 }

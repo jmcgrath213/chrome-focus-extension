@@ -42,6 +42,8 @@ function App() {
   var countdownValue = countdownRef?.current?.total;
   console.log("count", countdownValue);
 
+  chrome.runtime.connect();
+
   const confirmSetTimes = () => {
     setFinalFocus(focusTime);
     setFinalBreak(breakTime);
