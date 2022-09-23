@@ -1,4 +1,4 @@
-import React, { useRef, useState } from 'react';
+import React, { useEffect, useRef, useState } from 'react';
 import { 
   Box,
   Heading,
@@ -34,33 +34,96 @@ function App() {
   const [appIsOn, setAppIsOn] = useState(true);
   const [focusTime, setFocusTime] = useState(3600000);
   const [breakTime, setBreakTime] = useState(900000);
-  const [finalFocus, setFinalFocus] = useState(1);
-  const [finalBreak, setFinalBreak] = useState(0);
+  const [finalCountdown, setFinalCountdown] = useState(1);
+  const [finalProgress, setFinalProgress] = useState(1);
   const [onBreak, setOnBreak] = useState(false);
+  const [resetTimer, setResetTimer] = useState(0);
+  const [showStartBreak, setShowStartBreak] = useState(false);
   const { isOpen, onOpen, onClose } = useDisclosure();
   const countdownRef = useRef<any>();
-  var countdownValue = countdownRef?.current?.total;
-  console.log("count", countdownValue);
 
   chrome.runtime.connect();
 
-  const confirmSetTimes = () => {
-    setFinalFocus(focusTime);
-    setFinalBreak(breakTime);
-  }
+  chrome.runtime.sendMessage({cmd: "getTime"}, response => {
+    if(response.countdownTime && response.focusTime && response.breakTime && response.countdownTime > Date.now()) {
+      setFinalProgress(onBreak ? response.breakTime : response.focusTime);
+      setFinalCountdown(response.countdownTime);
+    } 
+  })
 
-  const startCountdown = () => {
-    confirmSetTimes();
+  useEffect(() => {
     setTimeout(() => {
       countdownRef.current.start();
     }, 100)
+  }, [])
+
+  //function for inital setting of focus and break times
+  const confirmSetInitialTimes = () => {
+    const finalFocusTime = Date.now() + focusTime;
+    chrome.runtime.sendMessage({
+      cmd: "setTime",
+      countdownTime: finalFocusTime,
+      focusTime: focusTime,
+      breakTime: breakTime,
+    });
+    setFinalProgress(focusTime);
+    setFinalCountdown(finalFocusTime);
+  }
+
+  //Starts the inital countdown when there is none already
+  const startInitialCountdown = () => {
+    confirmSetInitialTimes();
+    setTimeout(() => {
+      countdownRef.current.start();
+    }, 100)
+  }
+
+  //Function for switching back to focus countdown after a break
+  const resetFocusCountdown = () => {
+    let currentFocusTime = 0;
+    chrome.runtime.sendMessage({cmd: "getTime"}, response => {
+      currentFocusTime = response.focusTime;
+    })
+    const finalFocusTime = Date.now() + currentFocusTime;
+    chrome.runtime.sendMessage({
+      cmd: "setTime",
+      countdownTime: finalFocusTime,
+    });
+    setFinalProgress(currentFocusTime);
+    setFinalCountdown(finalFocusTime);
+    setOnBreak(!onBreak);
+    setTimeout(() => {
+      countdownRef.current.start();
+    }, 100)
+  }
+
+  //Switches countdown from focus to break and back and so on...
+  const countdownSwitch = () => {
+    if(!onBreak){
+      setShowStartBreak(true);
+    }
+    else if(onBreak){
+      resetFocusCountdown();
+    }
   }
 
   const startBreak = () => {
+    let currentBreakTime = 0;
+    chrome.runtime.sendMessage({cmd: "getTime"}, response => {
+      currentBreakTime = response.breakTime;
+      console.log("breakTime: ", response.breakTime)
+    });
+    const finalBreakTime = Date.now() + currentBreakTime;
+    chrome.runtime.sendMessage({
+      cmd: "setTime",
+      countdownTime: finalBreakTime,
+    });
+    setFinalProgress(currentBreakTime);
+    setFinalCountdown(finalBreakTime);
+    setOnBreak(!onBreak)
     setTimeout(() => {
       countdownRef.current.start();
-      console.log("hit timeout");
-    }, 100)
+    }, 100)  
   }
 
   return (
@@ -90,28 +153,60 @@ function App() {
           </VStack>
         </HStack>
         <Countdown
-          date={onBreak ? Date.now() + finalBreak : Date.now() + finalFocus}
-          onStop={() => {setOnBreak(!onBreak); startBreak();}}
+          date={finalCountdown}
+          onComplete={() => {countdownSwitch();}}
           autoStart={false}
           ref={countdownRef}
           renderer={props => 
           {return (
             <Box width="65%" height="55%">
               <CircularProgressbarWithChildren 
-                value={finalFocus - props.total}
-                maxValue={finalFocus}
-                counterClockwise={onBreak}
+                value={finalProgress - props.total}
+                maxValue={finalProgress}
                 styles={buildStyles({
-                  rotation: 1/(finalFocus/1000),
+                  rotation: 1/(finalProgress/1000),
                   strokeLinecap: 'round',
                   pathTransitionDuration: 0.1,
                   pathColor: '#e42d2d',
                 })}
               >
                 <Box>
-                  <span>
-                    {zeroPad(props.hours)}:{zeroPad(props.minutes)}:{zeroPad(props.seconds)}
-                  </span>
+                  {finalCountdown === 1 ? (
+                    <Box>
+                      <VStack alignItems="center">
+                        <Text>Welcome to Study Habits!</Text>
+                        <Text>▼ Set your times below ▼</Text>
+                      </VStack>
+                    </Box>
+                  ) : (
+                    <Box>
+                      {showStartBreak ? (
+                        <Box>
+                          <VStack>
+                            <Text>Time to start your break!</Text>
+                            <Button
+                              size="xs"
+                              colorScheme="blue"
+                              onClick={() => {startBreak(); setShowStartBreak(false)}}
+                            >
+                              Start
+                            </Button>
+                          </VStack>
+                        </Box>
+                      ) : (
+                        <Box>
+                          <VStack alignItems="center">
+                            <Text>{onBreak ? 'Break Time!' : 'Focus Time!'}</Text>
+                            <Box>
+                              <span>
+                                {zeroPad(props.hours)}:{zeroPad(props.minutes)}:{zeroPad(props.seconds)}
+                              </span>
+                            </Box>
+                          </VStack>
+                        </Box>
+                      )}
+                    </Box>
+                  )}
                 </Box>
               </CircularProgressbarWithChildren>
             </Box>
@@ -121,7 +216,7 @@ function App() {
         <Text fontSize="md" as="u">Focus Time</Text>
         <Box width="80%" pb={4}>
           <Slider
-            min={1}
+            min={0.1}
             max={126}
             defaultValue={36}
             step={9}
@@ -145,7 +240,7 @@ function App() {
         <Text fontSize="md" as="u">Break Time</Text>
         <Box width="80%" pb={4}>
           <Slider
-            min={1}
+            min={0.1}
             max={33}
             defaultValue={9}
             step={3}
@@ -177,7 +272,7 @@ function App() {
       </VStack>
       <Modal isOpen={isOpen} onClose={onClose}>
         <ModalOverlay />
-        <ModalContent width="90%">
+        <ModalContent alignSelf="center" width="90%">
           <ModalHeader>Modal Title</ModalHeader>
           <ModalCloseButton />
           <ModalBody>
@@ -191,7 +286,7 @@ function App() {
             <Button
               colorScheme="green"
               onClick={() => {
-                startCountdown();
+                startInitialCountdown();
                 onClose();
               }}
             >
