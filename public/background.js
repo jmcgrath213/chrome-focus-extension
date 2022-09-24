@@ -1,6 +1,8 @@
-let countdownTime;
+let focusCountdown;
+let breakCountdown;
 let focusTime;
 let breakTime;
+let onBreak = false;
 
 chrome.runtime.onConnect.addListener(port => {
   port.onDisconnect.addListener(()=>{
@@ -9,12 +11,25 @@ chrome.runtime.onConnect.addListener(port => {
 })
 
 chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
-  if(request.cmd === "setTime") {
-    countdownTime = request.countdownTime;
+  if(request.cmd === "setFocusTime") {
+    focusCountdown = request.focusCountdown;
     focusTime = request.focusTime;
-    breakTime = request.breakTime;
   }
-  else if(request.cmd === "getTime") {
-    sendResponse({countdownTime: countdownTime, focusTime: focusTime, breakTime: breakTime});
+  else if(request.cmd === "getFocusTime") {
+    sendResponse({focusCountdown, focusTime, onBreak});
+  }
+  else if(request.cmd === "setBreakTime") {
+    breakCountdown = request.breakCountdown;
+    breakTime = request.breakTime;
+    onBreak = request.onBreak;
+  }
+  else if(request.cmd === "getBreakTime") {
+    sendResponse({breakCountdown, breakTime, onBreak});
+  }
+  else if(request.cmd === "setOnBreak") {
+    onBreak = request.onBreak;
+  }
+  else if(request.cmd === "getOnBreak") {
+    sendResponse({onBreak});
   }
 })

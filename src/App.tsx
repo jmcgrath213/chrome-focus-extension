@@ -34,26 +34,39 @@ function App() {
   const [appIsOn, setAppIsOn] = useState(true);
   const [focusTime, setFocusTime] = useState(3600000);
   const [breakTime, setBreakTime] = useState(900000);
-  const [finalCountdown, setFinalCountdown] = useState(1);
-  const [finalProgress, setFinalProgress] = useState(1);
+  const [finalFocusCountdown, setFinalFocusCountdown] = useState(1);
+  const [finalFocusProgress, setFinalFocusProgress] = useState(1);
+  const [finalBreakCountdown, setFinalBreakCountdown] = useState(1);
+  const [finalBreakProgress, setFinalBreakProgress] = useState(1);
+  const [focusCountdownKey, setFocusCountdownKey] = useState("focus");
   const [onBreak, setOnBreak] = useState(false);
-  const [resetTimer, setResetTimer] = useState(0);
-  const [showStartBreak, setShowStartBreak] = useState(false);
   const { isOpen, onOpen, onClose } = useDisclosure();
-  const countdownRef = useRef<any>();
+  const breakCountdownRef = useRef<any>();
+  const focusCountdownRef = useRef<any>();
 
   chrome.runtime.connect();
 
-  chrome.runtime.sendMessage({cmd: "getTime"}, response => {
-    if(response.countdownTime && response.focusTime && response.breakTime && response.countdownTime > Date.now()) {
-      setFinalProgress(onBreak ? response.breakTime : response.focusTime);
-      setFinalCountdown(response.countdownTime);
-    } 
+  chrome.runtime.sendMessage({cmd: "getFocusTime"}, response => {
+    if(response.focusCountdown && response.focusTime && response.countdownTime > Date.now()) {
+      setFinalFocusCountdown(response.focusCountdown);
+      setFinalFocusProgress(response.focusTime);
+    }
+  })
+
+  chrome.runtime.sendMessage({cmd: "getBreakTime"}, response => {
+    if(response.breakCountdown && response.breakTime && response.breakCountdown > Date.now()) {
+      setFinalBreakCountdown(response.breakCountdown);
+      setFinalBreakProgress(response.breakTime);
+    }
+  })
+
+  chrome.runtime.sendMessage({cmd: "getOnBreak"}, response => {
+    setOnBreak(response.onBreak);
   })
 
   useEffect(() => {
     setTimeout(() => {
-      countdownRef.current.start();
+      {onBreak ? breakCountdownRef.current.start() : focusCountdownRef.current.start()}
     }, 100)
   }, [])
 
@@ -61,68 +74,74 @@ function App() {
   const confirmSetInitialTimes = () => {
     const finalFocusTime = Date.now() + focusTime;
     chrome.runtime.sendMessage({
-      cmd: "setTime",
-      countdownTime: finalFocusTime,
+      cmd: "setFocusTime",
+      focusCountdown: finalFocusTime,
       focusTime: focusTime,
-      breakTime: breakTime,
+      onBreak: false
     });
-    setFinalProgress(focusTime);
-    setFinalCountdown(finalFocusTime);
+    chrome.runtime.sendMessage({
+      cmd: "setBreakTime",
+      focusTime: breakTime,
+    });
+    setFinalFocusProgress(focusTime);
+    setFinalFocusCountdown(finalFocusTime);
   }
 
   //Starts the inital countdown when there is none already
   const startInitialCountdown = () => {
     confirmSetInitialTimes();
     setTimeout(() => {
-      countdownRef.current.start();
+      focusCountdownRef.current.start();
     }, 100)
   }
 
   //Function for switching back to focus countdown after a break
   const resetFocusCountdown = () => {
-    let currentFocusTime = 0;
     chrome.runtime.sendMessage({cmd: "getTime"}, response => {
-      currentFocusTime = response.focusTime;
+      if(response.focusTime) {
+        setFocusTime(response.focusTime);
+      }
     })
-    const finalFocusTime = Date.now() + currentFocusTime;
+    const finalFocusTime = Date.now() + focusTime;
     chrome.runtime.sendMessage({
-      cmd: "setTime",
-      countdownTime: finalFocusTime,
+      cmd: "setFocusTime",
+      focusCountdown: finalFocusTime,
+      onBreak: false
     });
-    setFinalProgress(currentFocusTime);
-    setFinalCountdown(finalFocusTime);
-    setOnBreak(!onBreak);
-    setTimeout(() => {
-      countdownRef.current.start();
-    }, 100)
+    setFinalFocusProgress(focusTime);
+    setFinalFocusCountdown(finalFocusTime);
+    setOnBreak(false);
   }
 
   //Switches countdown from focus to break and back and so on...
   const countdownSwitch = () => {
     if(!onBreak){
-      setShowStartBreak(true);
+      setFocusCountdownKey("break");
+      startBreak();
     }
     else if(onBreak){
+      setFocusCountdownKey("focus");
       resetFocusCountdown();
     }
   }
 
   const startBreak = () => {
-    let currentBreakTime = 0;
-    chrome.runtime.sendMessage({cmd: "getTime"}, response => {
-      currentBreakTime = response.breakTime;
-      console.log("breakTime: ", response.breakTime)
+    chrome.runtime.sendMessage({cmd: "getBreakTime"}, response => {
+      if(response.breakTime) {
+        setBreakTime(response.breakTime);
+      }
     });
-    const finalBreakTime = Date.now() + currentBreakTime;
+    const finalBreakTime = Date.now() + breakTime;
     chrome.runtime.sendMessage({
-      cmd: "setTime",
-      countdownTime: finalBreakTime,
+      cmd: "setBreakTime",
+      breakCountdown: finalBreakTime,
+      onBreak: true
     });
-    setFinalProgress(currentBreakTime);
-    setFinalCountdown(finalBreakTime);
-    setOnBreak(!onBreak)
+    setFinalBreakProgress(breakTime);
+    setFinalBreakCountdown(finalBreakTime);
+    setOnBreak(true)
     setTimeout(() => {
-      countdownRef.current.start();
+      breakCountdownRef.current.start();
     }, 100)  
   }
 
@@ -152,51 +171,76 @@ function App() {
             />
           </VStack>
         </HStack>
-        <Countdown
-          date={finalCountdown}
-          onComplete={() => {countdownSwitch();}}
-          autoStart={false}
-          ref={countdownRef}
-          renderer={props => 
-          {return (
-            <Box width="65%" height="55%">
-              <CircularProgressbarWithChildren 
-                value={finalProgress - props.total}
-                maxValue={finalProgress}
-                styles={buildStyles({
-                  rotation: 1/(finalProgress/1000),
-                  strokeLinecap: 'round',
-                  pathTransitionDuration: 0.1,
-                  pathColor: '#e42d2d',
-                })}
-              >
-                <Box>
-                  {finalCountdown === 1 ? (
+        {onBreak ? (
+          <Box alignContent="center">
+            <Countdown
+              date={finalBreakCountdown}
+              onComplete={() => {countdownSwitch();}}
+              autoStart={false}
+              ref={breakCountdownRef}
+              renderer={props => 
+              {return (
+                <Box width="65%" height="55%">
+                  <CircularProgressbarWithChildren 
+                    value={finalBreakProgress - props.total}
+                    maxValue={finalBreakProgress}
+                    counterClockwise={true}
+                    styles={buildStyles({
+                      rotation: 1/(finalBreakProgress/1000),
+                      strokeLinecap: 'round',
+                      pathTransitionDuration: 0.1,
+                      pathColor: 'blue',
+                    })}
+                  >
                     <Box>
                       <VStack alignItems="center">
-                        <Text>Welcome to Study Habits!</Text>
-                        <Text>▼ Set your times below ▼</Text>
+                        <Text>Break Time!</Text>
+                        <Box>
+                          <span>
+                            {zeroPad(props.hours)}:{zeroPad(props.minutes)}:{zeroPad(props.seconds)}
+                          </span>
+                        </Box>
                       </VStack>
                     </Box>
-                  ) : (
+                  </CircularProgressbarWithChildren>
+                </Box>
+              )}
+              }
+            />
+          </Box>
+        ) : (
+          <Box alignContent="center">
+            <Countdown
+              date={finalFocusCountdown}
+              key={focusCountdownKey}
+              onComplete={() => {countdownSwitch();}}
+              autoStart={true}
+              ref={focusCountdownRef}
+              renderer={props => 
+              {return (
+                <Box width="65%" height="55%">
+                  <CircularProgressbarWithChildren 
+                    value={finalFocusProgress - props.total}
+                    maxValue={finalFocusProgress}
+                    styles={buildStyles({
+                      rotation: 1/(finalFocusProgress/1000),
+                      strokeLinecap: 'round',
+                      pathTransitionDuration: 0.1,
+                      pathColor: '#e42d2d',
+                    })}
+                  >
                     <Box>
-                      {showStartBreak ? (
+                      {finalFocusCountdown === 1 ? (
                         <Box>
-                          <VStack>
-                            <Text>Time to start your break!</Text>
-                            <Button
-                              size="xs"
-                              colorScheme="blue"
-                              onClick={() => {startBreak(); setShowStartBreak(false)}}
-                            >
-                              Start
-                            </Button>
+                          <VStack alignItems="center">
+                            <Text>Welcome to Study Habits!</Text>
+                            <Text>▼ Set your times below ▼</Text>
                           </VStack>
                         </Box>
                       ) : (
                         <Box>
                           <VStack alignItems="center">
-                            <Text>{onBreak ? 'Break Time!' : 'Focus Time!'}</Text>
+                            <Text>Focus Time!</Text>
                             <Box>
                               <span>
                                 {zeroPad(props.hours)}:{zeroPad(props.minutes)}:{zeroPad(props.seconds)}
@@ -206,13 +250,13 @@ function App() {
                         </Box>
                       )}
                     </Box>
-                  )}
+                  </CircularProgressbarWithChildren>
                 </Box>
-              </CircularProgressbarWithChildren>
-            </Box>
-          )}
-          }
-        />
+              )}
+              }
+            />
+          </Box>
+        )}
         <Text fontSize="md" as="u">Focus Time</Text>
         <Box width="80%" pb={4}>
           <Slider
